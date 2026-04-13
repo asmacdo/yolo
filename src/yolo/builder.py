@@ -144,7 +144,7 @@ def _image_exists(tag: str) -> bool:
     return result.returncode == 0
 
 
-def _build_base(build_args: list[str] | None = None) -> None:
+def _build_base(build_args: list[str] | None = None, no_cache: bool = False) -> None:
     """Build yolo-base from Containerfile.base."""
     containerfile = REPO_ROOT / "images" / "Containerfile.base"
     print(f"Building {BASE_IMAGE}...")
@@ -156,6 +156,8 @@ def _build_base(build_args: list[str] | None = None) -> None:
         "-t",
         BASE_IMAGE,
     ]
+    if no_cache:
+        cmd.append("--no-cache")
     for arg in build_args or []:
         cmd += ["--build-arg", arg]
     cmd.append(str(REPO_ROOT / "images"))
@@ -164,14 +166,17 @@ def _build_base(build_args: list[str] | None = None) -> None:
 
 
 def _ensure_base(
-    base: str, images_config: list, build_args: list[str] | None = None
+    base: str,
+    images_config: list,
+    build_args: list[str] | None = None,
+    rebuild: bool = False,
 ) -> None:
     """Ensure a base image exists. Build it if we know how."""
-    if _image_exists(base):
+    if not rebuild and _image_exists(base):
         return
 
     if base == BASE_IMAGE:
-        _build_base(build_args=build_args)
+        _build_base(build_args=build_args, no_cache=rebuild)
         return
 
     # Check if it's an image defined in our config
@@ -189,6 +194,7 @@ def build_image(
     images_config: list | None = None,
     verify: bool = False,
     build_args: list[str] | None = None,
+    rebuild: bool = False,
 ) -> str:
     """Build a single image from an images list entry. Returns the tag."""
     name = image_entry.get("name", "default")
@@ -212,7 +218,7 @@ def build_image(
         print(f"    - {extra_name} ({source})", flush=True)
     print(flush=True)
 
-    _ensure_base(base, images_config or [], build_args=all_args)
+    _ensure_base(base, images_config or [], build_args=all_args, rebuild=rebuild)
 
     build_dir = assemble_build_context(extras, verify=verify)
     try:
@@ -226,6 +232,8 @@ def build_image(
             "-t",
             tag,
         ]
+        if rebuild:
+            cmd.append("--no-cache")
         for arg in all_args:
             cmd += ["--build-arg", arg]
         cmd.append(str(build_dir))
@@ -242,6 +250,7 @@ def build(
     only: str | None = None,
     verify: bool = False,
     build_args: list[str] | None = None,
+    rebuild: bool = False,
 ) -> None:
     """Build images from config. Optionally filter by name."""
     if not images_config:
@@ -252,4 +261,6 @@ def build(
         name = entry.get("name", "default")
         if only and name != only:
             continue
-        build_image(entry, images_config, verify=verify, build_args=build_args)
+        build_image(
+            entry, images_config, verify=verify, build_args=build_args, rebuild=rebuild
+        )

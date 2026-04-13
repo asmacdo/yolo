@@ -30,12 +30,17 @@ def main(ctx, no_config):
 @click.option(
     "--build-arg", multiple=True, help="Pass build arg to podman build (repeatable)"
 )
+@click.option(
+    "--rebuild", is_flag=True, default=False, help="Rebuild from scratch (no cache)"
+)
 @click.pass_context
-def build(ctx, image, verify, build_arg):
+def build(ctx, image, verify, build_arg, rebuild):
     """Build the container image with configured extras."""
     config = load_config(no_config=ctx.obj["no_config"])
     images = config.get("images", [])
-    builder_build(images, only=image, verify=verify, build_args=list(build_arg))
+    builder_build(
+        images, only=image, verify=verify, build_args=list(build_arg), rebuild=rebuild
+    )
 
 
 @main.command()
