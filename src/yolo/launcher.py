@@ -182,6 +182,7 @@ def run(
         *_build_volume_args(extra_volumes or []),
         *_worktree_volume(worktree_mode),
         *_nvidia_args(use_nvidia),
+        *config.get("container_args", []),
         *(container_args or []),
         "-w",
         str(cwd),
