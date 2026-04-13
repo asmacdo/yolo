@@ -21,6 +21,7 @@ images:
           - less
           - man-db
           - shellcheck
+          - tmux
           - zsh
       - name: git-delta
         version: "0.18.2"
