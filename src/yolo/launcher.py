@@ -108,7 +108,7 @@ def _worktree_volume(mode: str) -> list[str]:
     elif mode == "skip":
         return []
     elif mode == "bind":
-        return ["-v", f"{original}:{original}:z"]
+        return ["-v", f"{original}:{original}"]
     elif mode == "ask":
         print(
             f"Detected git worktree. Original repository: {original}", file=sys.stderr
@@ -119,7 +119,7 @@ def _worktree_volume(mode: str) -> list[str]:
         )
         reply = input("Bind mount original repository? [y/N] ")
         if reply.strip().lower() == "y":
-            return ["-v", f"{original}:{original}:z"]
+            return ["-v", f"{original}:{original}"]
         return []
     else:
         print(f"Warning: unknown worktree mode '{mode}', skipping", file=sys.stderr)

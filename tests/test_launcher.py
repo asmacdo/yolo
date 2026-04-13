@@ -246,7 +246,7 @@ class TestWorktreeVolume:
             return_value=Path("/repo"),
         ):
             result = _worktree_volume("bind")
-            assert result == ["-v", "/repo:/repo:z"]
+            assert result == ["-v", "/repo:/repo"]
 
     def test_skip_mode(self):
         with patch(
