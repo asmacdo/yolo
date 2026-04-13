@@ -144,32 +144,34 @@ def _image_exists(tag: str) -> bool:
     return result.returncode == 0
 
 
-def _build_base() -> None:
+def _build_base(build_args: list[str] | None = None) -> None:
     """Build yolo-base from Containerfile.base."""
     containerfile = REPO_ROOT / "images" / "Containerfile.base"
     print(f"Building {BASE_IMAGE}...")
-    subprocess.run(
-        [
-            "podman",
-            "build",
-            "-f",
-            str(containerfile),
-            "-t",
-            BASE_IMAGE,
-            str(REPO_ROOT / "images"),
-        ],
-        check=True,
-    )
+    cmd = [
+        "podman",
+        "build",
+        "-f",
+        str(containerfile),
+        "-t",
+        BASE_IMAGE,
+    ]
+    for arg in build_args or []:
+        cmd += ["--build-arg", arg]
+    cmd.append(str(REPO_ROOT / "images"))
+    subprocess.run(cmd, check=True)
     print(f"Built {BASE_IMAGE}")
 
 
-def _ensure_base(base: str, images_config: list) -> None:
+def _ensure_base(
+    base: str, images_config: list, build_args: list[str] | None = None
+) -> None:
     """Ensure a base image exists. Build it if we know how."""
     if _image_exists(base):
         return
 
     if base == BASE_IMAGE:
-        _build_base()
+        _build_base(build_args=build_args)
         return
 
     # Check if it's an image defined in our config
@@ -183,7 +185,10 @@ def _ensure_base(base: str, images_config: list) -> None:
 
 
 def build_image(
-    image_entry: dict, images_config: list | None = None, verify: bool = False
+    image_entry: dict,
+    images_config: list | None = None,
+    verify: bool = False,
+    build_args: list[str] | None = None,
 ) -> str:
     """Build a single image from an images list entry. Returns the tag."""
     name = image_entry.get("name", "default")
@@ -195,6 +200,7 @@ def build_image(
         return tag
 
     base = image_entry.get("from", BASE_IMAGE)
+    all_args = image_entry.get("build_args", []) + (build_args or [])
 
     print(f"\n  Image: {tag}", flush=True)
     print(f"  Base:  {base}", flush=True)
@@ -206,7 +212,7 @@ def build_image(
         print(f"    - {extra_name} ({source})", flush=True)
     print(flush=True)
 
-    _ensure_base(base, images_config or [])
+    _ensure_base(base, images_config or [], build_args=all_args)
 
     build_dir = assemble_build_context(extras, verify=verify)
     try:
@@ -219,8 +225,10 @@ def build_image(
             str(CONTAINERFILE_EXTRAS),
             "-t",
             tag,
-            str(build_dir),
         ]
+        for arg in all_args:
+            cmd += ["--build-arg", arg]
+        cmd.append(str(build_dir))
         subprocess.run(cmd, check=True)
         print(f"\n  Built {tag}\n")
     finally:
@@ -229,7 +237,12 @@ def build_image(
     return tag
 
 
-def build(images_config: list, only: str | None = None, verify: bool = False) -> None:
+def build(
+    images_config: list,
+    only: str | None = None,
+    verify: bool = False,
+    build_args: list[str] | None = None,
+) -> None:
     """Build images from config. Optionally filter by name."""
     if not images_config:
         print("No images configured, nothing to build.")
@@ -239,4 +252,4 @@ def build(images_config: list, only: str | None = None, verify: bool = False) ->
         name = entry.get("name", "default")
         if only and name != only:
             continue
-        build_image(entry, images_config, verify=verify)
+        build_image(entry, images_config, verify=verify, build_args=build_args)

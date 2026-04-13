@@ -27,12 +27,15 @@ def main(ctx, no_config):
 @main.command()
 @click.option("--image", default=None, help="Build only this named image")
 @click.option("--verify", is_flag=True, default=False, help="Run extras in verify mode")
+@click.option(
+    "--build-arg", multiple=True, help="Pass build arg to podman build (repeatable)"
+)
 @click.pass_context
-def build(ctx, image, verify):
+def build(ctx, image, verify, build_arg):
     """Build the container image with configured extras."""
     config = load_config(no_config=ctx.obj["no_config"])
     images = config.get("images", [])
-    builder_build(images, only=image, verify=verify)
+    builder_build(images, only=image, verify=verify, build_args=list(build_arg))
 
 
 @main.command()

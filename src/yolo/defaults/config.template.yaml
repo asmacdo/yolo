@@ -59,6 +59,8 @@
 # images:
 #   - name: default
 #     # from: yolo-base
+#     # build_args:
+#     #   - CLAUDE_CODE_VERSION=latest
 #     extras:
 #       - name: apt
 #         packages: [zsh, fzf]
