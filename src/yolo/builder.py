@@ -6,9 +6,9 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-CONTAINERFILE_EXTRAS = REPO_ROOT / "images" / "Containerfile.extras"
-BUILTIN_EXTRAS = REPO_ROOT / "image-extras"
+_PKG_DIR = Path(__file__).resolve().parent
+CONTAINERFILE_EXTRAS = _PKG_DIR / "images" / "Containerfile.extras"
+BUILTIN_EXTRAS = _PKG_DIR / "image-extras"
 
 BASE_IMAGE = "yolo-base"
 
@@ -146,7 +146,7 @@ def _image_exists(tag: str) -> bool:
 
 def _build_base(build_args: list[str] | None = None, no_cache: bool = False) -> None:
     """Build yolo-base from Containerfile.base."""
-    containerfile = REPO_ROOT / "images" / "Containerfile.base"
+    containerfile = _PKG_DIR / "images" / "Containerfile.base"
     print(f"Building {BASE_IMAGE}...")
     cmd = [
         "podman",
@@ -160,7 +160,7 @@ def _build_base(build_args: list[str] | None = None, no_cache: bool = False) -> 
         cmd.append("--no-cache")
     for arg in build_args or []:
         cmd += ["--build-arg", arg]
-    cmd.append(str(REPO_ROOT / "images"))
+    cmd.append(str(_PKG_DIR / "images"))
     subprocess.run(cmd, check=True)
     print(f"Built {BASE_IMAGE}")
 
