@@ -13,9 +13,9 @@ from yolo.config import load_config
 def _expand_volume(vol: str) -> str:
     """Expand volume shorthand to full podman -v syntax.
 
-    ~/projects         → $HOME/projects:$HOME/projects:z
+    ~/projects         → $HOME/projects:$HOME/projects
     ~/data::ro         → $HOME/data:$HOME/data:ro
-    /host:/container   → /host:/container:z
+    /host:/container   → /host:/container
     /host:/cont:opts   → /host:/cont:opts  (unchanged)
     """
     home = str(Path.home())
@@ -26,10 +26,10 @@ def _expand_volume(vol: str) -> str:
     elif vol.count(":") >= 2:
         return vol
     elif ":" in vol:
-        return f"{vol}:z"
+        return vol
     else:
         path = vol.replace("~", home, 1)
-        return f"{path}:{path}:z"
+        return f"{path}:{path}"
 
 
 def _build_volume_args(volumes: list[str]) -> list[str]:
@@ -171,13 +171,13 @@ def run(
         "--userns=keep-id",
         f"--name={name}",
         "-v",
-        f"{claude_dir}:{claude_dir}:z",
+        f"{claude_dir}:{claude_dir}",
         "-v",
-        f"{home}/.gitconfig:/tmp/.gitconfig:ro,z",
+        f"{home}/.gitconfig:/tmp/.gitconfig:ro",
         "-v",
-        f"{cwd}:{cwd}:z",
+        f"{cwd}:{cwd}",
         "-v",
-        f"{clip_dir}:/tmp/yolo-clip:z",
+        f"{clip_dir}:/tmp/yolo-clip",
         *_build_volume_args(config_volumes),
         *_build_volume_args(extra_volumes or []),
         *_worktree_volume(worktree_mode),

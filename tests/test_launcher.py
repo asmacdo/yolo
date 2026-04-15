@@ -25,7 +25,7 @@ class TestExpandVolume:
     def test_shorthand(self):
         result = _expand_volume("~/projects")
         home = str(Path.home())
-        assert result == f"{home}/projects:{home}/projects:z"
+        assert result == f"{home}/projects:{home}/projects"
 
     def test_shorthand_with_options(self):
         result = _expand_volume("~/data::ro")
@@ -33,13 +33,13 @@ class TestExpandVolume:
         assert result == f"{home}/data:{home}/data:ro"
 
     def test_partial(self):
-        assert _expand_volume("/host:/container") == "/host:/container:z"
+        assert _expand_volume("/host:/container") == "/host:/container"
 
     def test_full_passthrough(self):
         assert _expand_volume("/host:/container:ro,z") == "/host:/container:ro,z"
 
     def test_absolute_shorthand(self):
-        assert _expand_volume("/data") == "/data:/data:z"
+        assert _expand_volume("/data") == "/data:/data"
 
 
 class TestBuildVolumeArgs:

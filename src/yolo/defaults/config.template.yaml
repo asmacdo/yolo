@@ -25,9 +25,9 @@
 
 # ── Volumes ─────────────────────────────────────────────────
 # Extra bind mounts. Shorthand:
-#   ~/data           → ~/data:~/data:z         (1-to-1)
+#   ~/data           → ~/data:~/data            (1-to-1)
 #   ~/data::ro       → ~/data:~/data:ro        (1-to-1, read-only)
-#   /host:/container → /host:/container:z      (partial, :z added)
+#   /host:/container → /host:/container         (partial)
 #   /h:/c:opts       → /h:/c:opts              (full, unchanged)
 # volumes:
 #   - ~/data
