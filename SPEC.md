@@ -14,12 +14,14 @@ permission prompts needed.
 |-----------|------|---------|
 | CLI | `src/yolo/cli.py` | `yo build`, `yo run` |
 | Config | `src/yolo/config.py` | YAML loading from 5 locations |
+| Images | `src/yolo/images.py` | Image definition loading, validation, topo-sort |
 | Builder | `src/yolo/builder.py` | Resolves extras, assembles build context, invokes podman |
 | Launcher | `src/yolo/launcher.py` | Assembles podman run command |
 | Base image | `images/Containerfile.base` | Minimal debian + Claude Code |
 | Extras image | `images/Containerfile.extras` | Layers image-extras on base |
 | Scripts | `image-extras/` | Composable install scripts |
-| Defaults | `src/yolo/defaults/config.yaml` | Default image config |
+| Config defaults | `src/yolo/defaults/config.yaml` | Default config (image selection, env, etc.) |
+| Image defaults | `src/yolo/defaults/images.yaml` | Default image definitions (yolo-base, yolo-default) |
 
 ---
 
@@ -53,41 +55,52 @@ CLI args override everything.
 
 ## Images
 
-Images are defined in config as a named list. Each image has a name,
-optional `from` (base image), and a list of extras to install.
+Images are defined in `images.yaml` files (separate from `config.yaml`).
+Image definitions are collected from all locations into a flat namespace
+— no merging. `config.yaml` selects which image to run via the `image:`
+scalar key (default: `yolo-default`).
+
+### `images.yaml` locations
+
+Same locations as `config.yaml`:
+
+| # | Path | Scope |
+|---|------|-------|
+| 0 | Package defaults (`src/yolo/defaults/images.yaml`) | Builtin |
+| 1 | `/etc/yolo/images.yaml` | System/org |
+| 2 | `~/.config/yolo/images.yaml` | User |
+| 3 | `.yolo/images.yaml` | Project (committed) |
+| 4 | `.git/yolo/images.yaml` | Project (local) |
+
+### Image entry schema
 
 ```yaml
 images:
-  - name: default
+  - name: myimage           # required — IS the podman tag
+    from: yolo-default       # optional, default: yolo-base
+    containerfile: Containerfile.extras  # optional
+    build_args:
+      - KEY=value
     extras:
       - name: apt
-        packages: [zsh, fzf, shellcheck]
-      - name: python
-        version: "3.12"
-
-  - name: myproject:heavy
-    from: myproject
-    extras:
-      - name: cuda
+        packages: [zsh, fzf]
 ```
 
 ### Image naming
 
-Image tags are derived from the project dirname + image name:
-`yolo-<project>-<name>`. Project dirname comes from git toplevel or cwd.
+Image names **are** the podman tags. No synthesis, no prefix.
 
 ### `from` key
 
-Overrides the `BASE_IMAGE` build arg in `Containerfile.extras`. Podman
-handles composition natively via `FROM` — no inheritance system needed.
-Default is `yolo-base`.
+Can be a yo-defined image name or any podman image reference.
+Default is `yolo-base`. Yo builds dependencies first (topo-sorted).
 
-### No image inheritance in config
+### Validation
 
-Images do not inherit extras from each other through config merging.
-Composition is done through podman's `FROM` mechanism. If image B
-needs everything from image A plus more, set `from: <image-a-tag>`
-and podman layers B on top.
+- No duplicate names across all `images.yaml` files
+- No self-reference (`from: <own-name>`)
+- No cycles in the `from:` chain
+- `extras` + `containerfile: Containerfile.base` is invalid
 
 ---
 
