@@ -13,9 +13,9 @@ import pytest
 
 from yolo.builder import assemble_build_context
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-IMAGE_EXTRAS_DIR = REPO_ROOT / "image-extras"
-CONTAINERFILE_EXTRAS = REPO_ROOT / "images" / "Containerfile.extras"
+PKG_DIR = Path(__file__).resolve().parent.parent.parent / "src" / "yolo"
+IMAGE_EXTRAS_DIR = PKG_DIR / "image-extras"
+CONTAINERFILE_EXTRAS = PKG_DIR / "images" / "Containerfile.extras"
 BASE_IMAGE = "yolo-base"
 
 
@@ -44,10 +44,10 @@ def ensure_base_image():
                 "podman",
                 "build",
                 "-f",
-                str(REPO_ROOT / "images" / "Containerfile.base"),
+                str(PKG_DIR / "images" / "Containerfile.base"),
                 "-t",
                 BASE_IMAGE,
-                str(REPO_ROOT / "images"),
+                str(PKG_DIR / "images"),
             ],
             check=True,
         )

@@ -17,9 +17,9 @@ permission prompts needed.
 | Images | `src/yolo/images.py` | Image definition loading, validation, topo-sort |
 | Builder | `src/yolo/builder.py` | Resolves extras, assembles build context, invokes podman |
 | Launcher | `src/yolo/launcher.py` | Assembles podman run command |
-| Base image | `images/Containerfile.base` | Minimal debian + Claude Code |
-| Extras image | `images/Containerfile.extras` | Layers image-extras on base |
-| Scripts | `image-extras/` | Composable install scripts |
+| Base image | `src/yolo/images/Containerfile.base` | Minimal debian + Claude Code |
+| Extras image | `src/yolo/images/Containerfile.extras` | Layers image-extras on base |
+| Scripts | `src/yolo/image-extras/` | Composable install scripts |
 | Config defaults | `src/yolo/defaults/config.yaml` | Default config (image selection, env, etc.) |
 | Image defaults | `src/yolo/defaults/images.yaml` | Default image definitions (yolo-base, yolo-default) |
 

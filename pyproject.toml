@@ -24,10 +24,6 @@ yo = "yolo.cli:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/yolo"]
 
-[tool.hatch.build.targets.wheel.force-include]
-"image-extras" = "yolo/image-extras"
-"images" = "yolo/images"
-
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

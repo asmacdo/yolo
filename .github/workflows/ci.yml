@@ -31,7 +31,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ludeeus/action-shellcheck@master
         with:
-          scandir: image-extras
+          scandir: src/yolo/image-extras
 
   unit-tests:
     runs-on: ubuntu-latest
@@ -49,6 +49,8 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - run: uv venv && uv pip install -e ".[dev]"
       - name: Build base image
-        run: podman build -f images/Containerfile.base -t yolo-base images/
+        run: |
+          podman build -f src/yolo/images/Containerfile.base \
+            -t yolo-base src/yolo/images/
       - name: Run integration tests
         run: .venv/bin/pytest -m integration -v

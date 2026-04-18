@@ -153,7 +153,7 @@ def demo():
         repo_root = Path(__file__).resolve().parent.parent.parent
         extra_volumes = []
         if (
-            repo_root / "image-extras"
+            repo_root / "src" / "yolo" / "image-extras"
         ).is_dir():  # sanity check: are we in a source tree?
             extra_volumes.append(f"{repo_root}:/opt/yolo:ro")
         launcher_run(

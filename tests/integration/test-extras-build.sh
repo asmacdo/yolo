@@ -4,14 +4,15 @@ export PS4='> '
 set -x
 set -eu
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+PKG_DIR="$REPO_ROOT/src/yolo"
 BUILD_CONTEXT="$(mktemp -d "${TMPDIR:-/tmp}"/yolo-test-XXXXXXX)"
 trap 'rm -rf $BUILD_CONTEXT' EXIT
 
 # Assemble build context
 mkdir -p "$BUILD_CONTEXT/build/scripts"
-cp "$REPO_ROOT/image-extras/apt.sh" "$BUILD_CONTEXT/build/scripts/"
-cp "$REPO_ROOT/image-extras/python.sh" "$BUILD_CONTEXT/build/scripts/"
+cp "$PKG_DIR/image-extras/apt.sh" "$BUILD_CONTEXT/build/scripts/"
+cp "$PKG_DIR/image-extras/python.sh" "$BUILD_CONTEXT/build/scripts/"
 cat > "$BUILD_CONTEXT/build/run.sh" << 'EOF'
 #!/bin/bash
 set -eu

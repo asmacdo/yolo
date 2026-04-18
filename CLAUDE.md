@@ -32,6 +32,12 @@ pytest
 
 Entry point is `yo` (temporary, becomes `yolo` at cutover).
 
+**Global vs local install:** `yo` is installed globally via `uv tool install`.
+During development, the global install will shadow the local venv unless
+`.venv/bin` is earlier in PATH. If the global version is winning, run
+`uv tool uninstall con-yolo` before dev work, and reinstall after:
+`uv tool install ~/devel/yo`.
+
 ## Architecture
 
 - `src/yolo/config.py` — YAML config loading from 5 locations (defaults + 4 user)
@@ -41,7 +47,7 @@ Entry point is `yo` (temporary, becomes `yolo` at cutover).
 - `src/yolo/launcher.py` — assembles podman run command
 - `src/yolo/defaults/config.yaml` — default config (image selection, env, etc.)
 - `src/yolo/defaults/images.yaml` — default image definitions (yolo-base, yolo-default)
-- `images/Containerfile.base` — minimal debian base image
-- `images/Containerfile.extras` — layers image-extras on top
-- `image-extras/` — composable install scripts (apt.sh, python.sh, etc.)
+- `src/yolo/images/Containerfile.base` — minimal debian base image
+- `src/yolo/images/Containerfile.extras` — layers image-extras on top
+- `src/yolo/image-extras/` — composable install scripts (apt.sh, python.sh, etc.)
 - `.local-notes/` — gitignored local working notes (issues, PRs, etc.)

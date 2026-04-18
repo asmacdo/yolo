@@ -31,7 +31,7 @@ pre-commit run --all-files
 
 ## Writing image-extras scripts
 
-Scripts live in `image-extras/`. Each script is a self-contained
+Scripts live in `src/yolo/image-extras/`. Each script is a self-contained
 bash installer. Parameters are passed as env vars prefixed with
 `YOLO_{SCRIPTNAME}_{KEY}`:
 

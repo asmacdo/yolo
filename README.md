@@ -68,7 +68,7 @@ images:
       - name: my-tool
 ```
 
-Scripts are self-contained bash. See `image-extras/` for examples.
+Scripts are self-contained bash. See `src/yolo/image-extras/` for examples.
 
 ## Security
 
