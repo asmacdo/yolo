@@ -2,6 +2,7 @@
 
 import shutil
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -9,7 +10,8 @@ from yolo.builder import (
     _parse_extra,
     _resolve_script,
     assemble_build_context,
-    image_tag,
+    build,
+    build_image,
 )
 
 
@@ -136,15 +138,119 @@ class TestAssembleBuildContext:
             assemble_build_context([{"name": "nope"}])
 
 
-class TestImageTag:
-    def test_default_name(self, monkeypatch):
-        monkeypatch.setattr("yolo.builder._project_dirname", lambda: "myproject")
-        assert image_tag("default") == "yolo-myproject-default"
+# ── build_image ───────────────────────────────────────────────
 
-    def test_custom_name(self, monkeypatch):
-        monkeypatch.setattr("yolo.builder._project_dirname", lambda: "myproject")
-        assert image_tag("heavy") == "yolo-myproject-heavy"
 
-    def test_sanitizes_dirname(self, monkeypatch):
-        monkeypatch.setattr("yolo.builder._project_dirname", lambda: "my project!")
-        assert image_tag("default") == "yolo-my-project--default"
+class TestBuildImage:
+    @patch("yolo.builder._image_exists", return_value=True)
+    def test_skips_existing(self, mock_exists, capsys):
+        entry = {"name": "myimg", "from": "base"}
+        result = build_image(entry)
+        assert result == "myimg"
+        assert "already exists" in capsys.readouterr().out
+
+    @patch("yolo.builder.subprocess.run")
+    @patch("yolo.builder._image_exists", return_value=False)
+    def test_builds_base_containerfile(self, mock_exists, mock_run):
+        entry = {
+            "name": "mybase",
+            "from": "debian:bookworm",
+            "containerfile": "Containerfile.base",
+            "build_args": ["CLAUDE_CODE_VERSION=stable"],
+        }
+        build_image(entry)
+        cmd = mock_run.call_args[0][0]
+        assert "podman" == cmd[0]
+        assert "build" == cmd[1]
+        assert "-t" in cmd
+        idx = cmd.index("-t")
+        assert cmd[idx + 1] == "mybase"
+        assert "--build-arg" in cmd
+
+    @patch("yolo.builder.assemble_build_context")
+    @patch("yolo.builder.subprocess.run")
+    @patch("yolo.builder._image_exists", return_value=False)
+    def test_builds_extras_containerfile(
+        self, mock_exists, mock_run, mock_ctx, tmp_path
+    ):
+        build_dir = tmp_path / "build"
+        build_dir.mkdir()
+        mock_ctx.return_value = build_dir
+
+        entry = {
+            "name": "myimg",
+            "from": "mybase",
+            "extras": [{"name": "apt"}],
+        }
+        build_image(entry)
+        cmd = mock_run.call_args[0][0]
+        assert "-t" in cmd
+        idx = cmd.index("-t")
+        assert cmd[idx + 1] == "myimg"
+        assert "BASE_IMAGE=mybase" in " ".join(cmd)
+
+    @patch("yolo.builder.assemble_build_context")
+    @patch("yolo.builder.subprocess.run")
+    @patch("yolo.builder._image_exists", return_value=False)
+    def test_rebuild_passes_no_cache(self, mock_exists, mock_run, mock_ctx, tmp_path):
+        build_dir = tmp_path / "build"
+        build_dir.mkdir()
+        mock_ctx.return_value = build_dir
+
+        entry = {"name": "myimg", "from": "base", "extras": [{"name": "apt"}]}
+        build_image(entry, rebuild=True)
+        cmd = mock_run.call_args[0][0]
+        assert "--no-cache" in cmd
+
+    @patch("yolo.builder._image_exists", return_value=True)
+    def test_rebuild_ignores_existing(self, mock_exists):
+        """With rebuild=True, existing images are NOT skipped."""
+        # rebuild=True should not call _image_exists for skip logic
+        entry = {
+            "name": "mybase",
+            "from": "debian:bookworm",
+            "containerfile": "Containerfile.base",
+        }
+        with patch("yolo.builder.subprocess.run"):
+            result = build_image(entry, rebuild=True)
+        assert result == "mybase"
+
+
+# ── build (orchestrator) ─────────────────────────────────────
+
+
+class TestBuild:
+    @patch("yolo.builder.build_image")
+    def test_builds_target_chain(self, mock_build_image):
+        mock_build_image.return_value = "img"
+        images = [
+            {
+                "name": "base",
+                "from": "debian:bookworm",
+                "containerfile": "Containerfile.base",
+            },
+            {"name": "app", "from": "base"},
+        ]
+        build(images, target="app")
+        names = [call[0][0]["name"] for call in mock_build_image.call_args_list]
+        assert names == ["base", "app"]
+
+    @patch("yolo.builder.build_image")
+    def test_builds_all(self, mock_build_image):
+        mock_build_image.return_value = "img"
+        images = [
+            {
+                "name": "base",
+                "from": "debian:bookworm",
+                "containerfile": "Containerfile.base",
+            },
+            {"name": "a", "from": "base"},
+            {"name": "b", "from": "base"},
+        ]
+        build(images, all_images=True)
+        assert mock_build_image.call_count == 3
+
+    def test_no_target_prints_message(self, capsys):
+        images = [{"name": "a"}]
+        build(images)
+        assert "No images to build" in capsys.readouterr().out

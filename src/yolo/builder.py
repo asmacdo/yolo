@@ -6,36 +6,20 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from yolo.images import resolve_build_order, validate_images
+
 _PKG_DIR = Path(__file__).resolve().parent
+CONTAINERFILE_BASE = _PKG_DIR / "images" / "Containerfile.base"
 CONTAINERFILE_EXTRAS = _PKG_DIR / "images" / "Containerfile.extras"
 BUILTIN_EXTRAS = _PKG_DIR / "image-extras"
 
-BASE_IMAGE = "yolo-base"
-
-
-def _project_dirname() -> str:
-    """Get project dirname from git toplevel or cwd."""
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        return Path(result.stdout.strip()).name
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return Path.cwd().name
-
-
-def image_tag(image_name: str) -> str:
-    """Derive podman image tag from image name."""
-    project = _project_dirname()
-    project = "".join(c if c.isalnum() or c in "-_" else "-" for c in project)
-    return f"yolo-{project}-{image_name}"
+DEFAULT_FROM = "yolo-base"
 
 
 def _extras_search_path() -> list[Path]:
     """Return image-extras directories in precedence order (lowest first)."""
+    from yolo.config import _find_git_dir
+
     paths = [BUILTIN_EXTRAS]
 
     xdg = os.environ.get("XDG_CONFIG_HOME", "")
@@ -45,8 +29,6 @@ def _extras_search_path() -> list[Path]:
         paths.append(Path.home() / ".config" / "yolo" / "image-extras")
 
     paths.append(Path.cwd() / ".yolo" / "image-extras")
-
-    from yolo.config import _find_git_dir
 
     git_dir = _find_git_dir()
     if git_dir:
@@ -144,123 +126,116 @@ def _image_exists(tag: str) -> bool:
     return result.returncode == 0
 
 
-def _build_base(build_args: list[str] | None = None, no_cache: bool = False) -> None:
-    """Build yolo-base from Containerfile.base."""
-    containerfile = _PKG_DIR / "images" / "Containerfile.base"
-    print(f"Building {BASE_IMAGE}...")
-    cmd = [
-        "podman",
-        "build",
-        "-f",
-        str(containerfile),
-        "-t",
-        BASE_IMAGE,
-    ]
-    if no_cache:
-        cmd.append("--no-cache")
-    for arg in build_args or []:
-        cmd += ["--build-arg", arg]
-    cmd.append(str(_PKG_DIR / "images"))
-    subprocess.run(cmd, check=True)
-    print(f"Built {BASE_IMAGE}")
-
-
-def _ensure_base(
-    base: str,
-    images_config: list,
-    build_args: list[str] | None = None,
-    rebuild: bool = False,
-) -> None:
-    """Ensure a base image exists. Build it if we know how."""
-    if not rebuild and _image_exists(base):
-        return
-
-    if base == BASE_IMAGE:
-        _build_base(build_args=build_args, no_cache=rebuild)
-        return
-
-    # Check if it's an image defined in our config
-    for entry in images_config:
-        name = entry.get("name", "default")
-        if image_tag(name) == base:
-            build_image(entry, images_config)
-            return
-
-    raise RuntimeError(f"Base image '{base}' not found and not defined in config")
+def _containerfile(name: str) -> Path:
+    """Resolve a containerfile name to its path."""
+    if name == "Containerfile.base":
+        return CONTAINERFILE_BASE
+    return CONTAINERFILE_EXTRAS
 
 
 def build_image(
     image_entry: dict,
-    images_config: list | None = None,
     verify: bool = False,
     build_args: list[str] | None = None,
     rebuild: bool = False,
 ) -> str:
-    """Build a single image from an images list entry. Returns the tag."""
-    name = image_entry.get("name", "default")
+    """Build a single image from its definition. Returns the tag (= name)."""
+    name = image_entry["name"]
+    from_ref = image_entry.get("from", DEFAULT_FROM)
+    containerfile = image_entry.get("containerfile", "Containerfile.extras")
     extras = image_entry.get("extras", [])
-    tag = image_tag(name)
-
-    if not extras:
-        print(f"No extras for image '{name}', skipping.")
-        return tag
-
-    base = image_entry.get("from", BASE_IMAGE)
     all_args = image_entry.get("build_args", []) + (build_args or [])
 
-    print(f"\n  Image: {tag}", flush=True)
-    print(f"  Base:  {base}", flush=True)
-    print("  Extras:", flush=True)
-    for extra in extras:
-        extra_name = extra["name"] if isinstance(extra, dict) else extra
-        script = _resolve_script(extra_name, _extras_search_path())
-        source = str(script.parent) if script else "not found"
-        print(f"    - {extra_name} ({source})", flush=True)
-    print(flush=True)
+    if not rebuild and _image_exists(name):
+        print(f"  {name}: already exists, skipping")
+        return name
 
-    _ensure_base(base, images_config or [], build_args=all_args, rebuild=rebuild)
+    print(f"\n  Image: {name}", flush=True)
+    print(f"  From:  {from_ref}", flush=True)
+    print(f"  Containerfile: {containerfile}", flush=True)
 
-    build_dir = assemble_build_context(extras, verify=verify)
-    try:
+    cf_path = _containerfile(containerfile)
+
+    if containerfile == "Containerfile.base":
+        # Base images: no extras, just build the containerfile directly
+        print(flush=True)
         cmd = [
             "podman",
             "build",
-            "--build-arg",
-            f"BASE_IMAGE={base}",
             "-f",
-            str(CONTAINERFILE_EXTRAS),
+            str(cf_path),
             "-t",
-            tag,
+            name,
         ]
         if rebuild:
             cmd.append("--no-cache")
         for arg in all_args:
             cmd += ["--build-arg", arg]
-        cmd.append(str(build_dir))
+        cmd.append(str(_PKG_DIR / "images"))
         subprocess.run(cmd, check=True)
-        print(f"\n  Built {tag}\n")
-    finally:
-        shutil.rmtree(build_dir)
+    else:
+        # Extras images: assemble build context and layer on top
+        if extras:
+            print("  Extras:", flush=True)
+            for extra in extras:
+                extra_name = extra["name"] if isinstance(extra, dict) else extra
+                script = _resolve_script(extra_name, _extras_search_path())
+                source = str(script.parent) if script else "not found"
+                print(f"    - {extra_name} ({source})", flush=True)
+        print(flush=True)
 
-    return tag
+        build_dir = assemble_build_context(extras, verify=verify)
+        try:
+            cmd = [
+                "podman",
+                "build",
+                "--build-arg",
+                f"BASE_IMAGE={from_ref}",
+                "-f",
+                str(cf_path),
+                "-t",
+                name,
+            ]
+            if rebuild:
+                cmd.append("--no-cache")
+            for arg in all_args:
+                cmd += ["--build-arg", arg]
+            cmd.append(str(build_dir))
+            subprocess.run(cmd, check=True)
+        finally:
+            shutil.rmtree(build_dir)
+
+    print(f"  Built {name}\n")
+    return name
 
 
 def build(
-    images_config: list,
-    only: str | None = None,
+    images: list[dict],
+    target: str | None = None,
+    all_images: bool = False,
     verify: bool = False,
     build_args: list[str] | None = None,
     rebuild: bool = False,
 ) -> None:
-    """Build images from config. Optionally filter by name."""
-    if not images_config:
-        print("No images configured, nothing to build.")
+    """Build images in dependency order.
+
+    target: build this image and its from: chain.
+    all_images: build everything.
+    Neither: caller should pass target from config's image: key.
+    """
+    validate_images(images)
+
+    if all_images:
+        to_build = resolve_build_order(images)
+    elif target:
+        to_build = resolve_build_order(images, target)
+    else:
+        print("No images to build.")
         return
 
-    for entry in images_config:
-        name = entry.get("name", "default")
-        if only and name != only:
-            continue
-        build_image(
-            entry, images_config, verify=verify, build_args=build_args, rebuild=rebuild
-        )
+    if not to_build:
+        print("Nothing to build.")
+        return
+
+    for entry in to_build:
+        build_image(entry, verify=verify, build_args=build_args, rebuild=rebuild)
