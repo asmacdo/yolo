@@ -1,0 +1,24 @@
+---
+images:
+  - name: yolo-base
+    from: debian:bookworm
+    containerfile: Containerfile.base
+    build_args:
+      - CLAUDE_CODE_VERSION=stable
+
+  - name: yolo-default
+    from: yolo-base
+    extras:
+      - name: apt
+        packages:
+          - fzf
+          - gh
+          - less
+          - man-db
+          - shellcheck
+          - tmux
+          - zsh
+      - name: git-delta
+        version: "0.18.2"
+      - name: python
+        version: "3.12"
