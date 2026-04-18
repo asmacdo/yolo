@@ -49,3 +49,34 @@ class TestClip:
             result = runner.invoke(main, ["clip"])
             assert result.exit_code == 0
             assert mock_run.call_args[0][0] == ["wl-copy"]
+
+
+class TestBuild:
+    @patch("yolo.cli.builder_build")
+    @patch("yolo.cli.load_images", return_value=[{"name": "yolo-default"}])
+    @patch("yolo.cli.load_config", return_value={"image": "yolo-default"})
+    def test_default_builds_config_image(self, mock_config, mock_images, mock_build):
+        runner = CliRunner()
+        result = runner.invoke(main, ["build"])
+        assert result.exit_code == 0
+        mock_build.assert_called_once()
+        assert mock_build.call_args.kwargs["target"] == "yolo-default"
+
+    @patch("yolo.cli.builder_build")
+    @patch("yolo.cli.load_images", return_value=[{"name": "foo"}])
+    @patch("yolo.cli.load_config", return_value={})
+    def test_name_overrides_default(self, mock_config, mock_images, mock_build):
+        runner = CliRunner()
+        result = runner.invoke(main, ["build", "--name", "foo"])
+        assert result.exit_code == 0
+        assert mock_build.call_args.kwargs["target"] == "foo"
+
+    @patch("yolo.cli.builder_build")
+    @patch("yolo.cli.load_images", return_value=[{"name": "a"}, {"name": "b"}])
+    @patch("yolo.cli.load_config", return_value={})
+    def test_all_flag(self, mock_config, mock_images, mock_build):
+        runner = CliRunner()
+        result = runner.invoke(main, ["build", "--all"])
+        assert result.exit_code == 0
+        assert mock_build.call_args.kwargs["all_images"] is True
+        assert mock_build.call_args.kwargs["target"] is None

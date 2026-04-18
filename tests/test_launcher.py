@@ -14,11 +14,20 @@ from yolo.launcher import (
     run,
 )
 
+DEFAULT_IMAGES = [
+    {
+        "name": "yolo-base",
+        "from": "debian:bookworm",
+        "containerfile": "Containerfile.base",
+    },
+    {"name": "yolo-default", "from": "yolo-base"},
+]
 
-@pytest.fixture(autouse=True)
-def _mock_image_tag():
-    with patch("yolo.launcher.image_tag", return_value="yolo-test-default"):
-        yield
+
+def _sub_run_image_exists(cmd, **kw):
+    """Mock subprocess.run: return success for 'podman image exists'."""
+    if cmd[:2] == ["podman", "image"]:
+        return type("R", (), {"returncode": 0})()
 
 
 class TestExpandVolume:
@@ -54,17 +63,12 @@ class TestBuildVolumeArgs:
         assert result == ["-v", "/a:/b:z", "-v", "/c:/d:ro,z"]
 
 
-def _sub_run_image_exists(cmd, **kw):
-    """Mock subprocess.run: return success for 'podman image exists'."""
-    if cmd[:2] == ["podman", "image"]:
-        return type("R", (), {"returncode": 0})()
-
-
 @patch("yolo.launcher._worktree_volume", return_value=[])
 class TestRun:
     @patch("yolo.launcher.subprocess.run", side_effect=_sub_run_image_exists)
-    @patch("yolo.launcher.load_config", return_value={})
-    def test_basic_command(self, mock_config, mock_run, _mock_wt):
+    @patch("yolo.launcher.load_images", return_value=DEFAULT_IMAGES)
+    @patch("yolo.launcher.load_config", return_value={"image": "yolo-default"})
+    def test_basic_command(self, mock_config, mock_images, mock_run, _mock_wt):
         run()
         cmd = mock_run.call_args[0][0]
         assert "podman" == cmd[0]
@@ -72,11 +76,12 @@ class TestRun:
         assert "--userns=keep-id" in cmd
         assert "claude" in cmd
         assert "--dangerously-skip-permissions" in cmd
-        assert "yolo-test-default" in cmd
+        assert "yolo-default" in cmd
 
     @patch("yolo.launcher.subprocess.run", side_effect=_sub_run_image_exists)
-    @patch("yolo.launcher.load_config", return_value={})
-    def test_claude_args_passed(self, mock_config, mock_run, _mock_wt):
+    @patch("yolo.launcher.load_images", return_value=DEFAULT_IMAGES)
+    @patch("yolo.launcher.load_config", return_value={"image": "yolo-default"})
+    def test_claude_args_passed(self, mock_config, mock_images, mock_run, _mock_wt):
         run(claude_args=["--resume"])
         cmd = mock_run.call_args[0][0]
         assert "--resume" in cmd
@@ -84,37 +89,43 @@ class TestRun:
         assert cmd[idx + 1] == "--resume"
 
     @patch("yolo.launcher.subprocess.run", side_effect=_sub_run_image_exists)
-    @patch("yolo.launcher.load_config", return_value={})
-    def test_extra_volumes(self, mock_config, mock_run, _mock_wt):
+    @patch("yolo.launcher.load_images", return_value=DEFAULT_IMAGES)
+    @patch("yolo.launcher.load_config", return_value={"image": "yolo-default"})
+    def test_extra_volumes(self, mock_config, mock_images, mock_run, _mock_wt):
         run(extra_volumes=["/data:/data:z"])
         cmd = mock_run.call_args[0][0]
         assert "-v" in cmd
         assert "/data:/data:z" in cmd
 
     @patch("yolo.launcher.subprocess.run", side_effect=_sub_run_image_exists)
+    @patch("yolo.launcher.load_images", return_value=DEFAULT_IMAGES)
     @patch(
         "yolo.launcher.load_config",
-        return_value={"volumes": ["/cfg:/cfg:ro,z"]},
+        return_value={"image": "yolo-default", "volumes": ["/cfg:/cfg:ro,z"]},
     )
-    def test_config_volumes(self, mock_config, mock_run, _mock_wt):
+    def test_config_volumes(self, mock_config, mock_images, mock_run, _mock_wt):
         run()
         cmd = mock_run.call_args[0][0]
         assert "/cfg:/cfg:ro,z" in cmd
 
     @patch("yolo.launcher.subprocess.run", side_effect=_sub_run_image_exists)
+    @patch("yolo.launcher.load_images", return_value=DEFAULT_IMAGES)
     @patch(
         "yolo.launcher.load_config",
-        return_value={"volumes": ["/cfg:/cfg:z"]},
+        return_value={"image": "yolo-default", "volumes": ["/cfg:/cfg:z"]},
     )
-    def test_config_and_extra_volumes(self, mock_config, mock_run, _mock_wt):
+    def test_config_and_extra_volumes(
+        self, mock_config, mock_images, mock_run, _mock_wt
+    ):
         run(extra_volumes=["/cli:/cli:z"])
         cmd = mock_run.call_args[0][0]
         assert "/cfg:/cfg:z" in cmd
         assert "/cli:/cli:z" in cmd
 
     @patch("yolo.launcher.subprocess.run", side_effect=_sub_run_image_exists)
-    @patch("yolo.launcher.load_config", return_value={})
-    def test_custom_entrypoint(self, mock_config, mock_run, _mock_wt):
+    @patch("yolo.launcher.load_images", return_value=DEFAULT_IMAGES)
+    @patch("yolo.launcher.load_config", return_value={"image": "yolo-default"})
+    def test_custom_entrypoint(self, mock_config, mock_images, mock_run, _mock_wt):
         run(entrypoint="bash")
         cmd = mock_run.call_args[0][0]
         assert "bash" in cmd
@@ -122,48 +133,56 @@ class TestRun:
         assert "--dangerously-skip-permissions" not in cmd
 
     @patch("yolo.launcher.subprocess.run", side_effect=_sub_run_image_exists)
-    @patch("yolo.launcher.load_config", return_value={})
-    def test_custom_entrypoint_with_args(self, mock_config, mock_run, _mock_wt):
+    @patch("yolo.launcher.load_images", return_value=DEFAULT_IMAGES)
+    @patch("yolo.launcher.load_config", return_value={"image": "yolo-default"})
+    def test_custom_entrypoint_with_args(
+        self, mock_config, mock_images, mock_run, _mock_wt
+    ):
         run(entrypoint="bash", claude_args=["-c", "echo hi"])
         cmd = mock_run.call_args[0][0]
         idx = cmd.index("bash")
         assert cmd[idx + 1 : idx + 3] == ["-c", "echo hi"]
 
-    @patch("yolo.launcher.image_tag")
     @patch("yolo.launcher.subprocess.run", side_effect=_sub_run_image_exists)
-    @patch("yolo.launcher.load_config", return_value={})
-    def test_image_name_passed(self, mock_config, mock_run, mock_tag, _mock_wt):
-        mock_tag.return_value = "yolo-myproject-heavy"
-        run(image_name="heavy")
-        mock_tag.assert_called_with("heavy")
+    @patch("yolo.launcher.load_images", return_value=DEFAULT_IMAGES)
+    @patch("yolo.launcher.load_config", return_value={"image": "yolo-default"})
+    def test_image_name_override(self, mock_config, mock_images, mock_run, _mock_wt):
+        run(image_name="yolo-base")
         cmd = mock_run.call_args[0][0]
-        assert "yolo-myproject-heavy" in cmd
+        assert "yolo-base" in cmd
 
     @patch("yolo.launcher.build")
     @patch("yolo.launcher.subprocess.run")
-    @patch("yolo.launcher.load_config", return_value={"images": [{"name": "default"}]})
+    @patch("yolo.launcher.load_images", return_value=DEFAULT_IMAGES)
+    @patch("yolo.launcher.load_config", return_value={"image": "yolo-default"})
     def test_auto_build_when_image_missing(
-        self, mock_config, mock_run, mock_build, _mock_wt
+        self, mock_config, mock_images, mock_run, mock_build, _mock_wt
     ):
         mock_run.return_value = type("R", (), {"returncode": 1})()
         run()
-        mock_build.assert_called_once_with([{"name": "default"}], only=None)
+        mock_build.assert_called_once()
+        assert mock_build.call_args.kwargs["target"] == "yolo-default"
 
     @patch("yolo.launcher.build")
     @patch("yolo.launcher.subprocess.run", side_effect=_sub_run_image_exists)
-    @patch("yolo.launcher.load_config", return_value={})
+    @patch("yolo.launcher.load_images", return_value=DEFAULT_IMAGES)
+    @patch("yolo.launcher.load_config", return_value={"image": "yolo-default"})
     def test_no_build_when_image_exists(
-        self, mock_config, mock_run, mock_build, _mock_wt
+        self, mock_config, mock_images, mock_run, mock_build, _mock_wt
     ):
         run()
         mock_build.assert_not_called()
 
     @patch("yolo.launcher.subprocess.run", side_effect=_sub_run_image_exists)
+    @patch("yolo.launcher.load_images", return_value=DEFAULT_IMAGES)
     @patch(
         "yolo.launcher.load_config",
-        return_value={"context": ["You are in a container."]},
+        return_value={
+            "image": "yolo-default",
+            "context": ["You are in a container."],
+        },
     )
-    def test_context_injection(self, mock_config, mock_run, _mock_wt):
+    def test_context_injection(self, mock_config, mock_images, mock_run, _mock_wt):
         run()
         cmd = mock_run.call_args[0][0]
         assert "--append-system-prompt" in cmd
@@ -171,29 +190,41 @@ class TestRun:
         assert cmd[idx + 1] == "You are in a container."
 
     @patch("yolo.launcher.subprocess.run", side_effect=_sub_run_image_exists)
+    @patch("yolo.launcher.load_images", return_value=DEFAULT_IMAGES)
     @patch(
         "yolo.launcher.load_config",
-        return_value={"context": ["Line one.", "Line two."]},
+        return_value={
+            "image": "yolo-default",
+            "context": ["Line one.", "Line two."],
+        },
     )
-    def test_context_multiple_lines(self, mock_config, mock_run, _mock_wt):
+    def test_context_multiple_lines(self, mock_config, mock_images, mock_run, _mock_wt):
         run()
         cmd = mock_run.call_args[0][0]
         idx = cmd.index("--append-system-prompt")
         assert cmd[idx + 1] == "Line one.\nLine two."
 
     @patch("yolo.launcher.subprocess.run", side_effect=_sub_run_image_exists)
-    @patch("yolo.launcher.load_config", return_value={})
-    def test_no_context_no_flag(self, mock_config, mock_run, _mock_wt):
+    @patch("yolo.launcher.load_images", return_value=DEFAULT_IMAGES)
+    @patch("yolo.launcher.load_config", return_value={"image": "yolo-default"})
+    def test_no_context_no_flag(self, mock_config, mock_images, mock_run, _mock_wt):
         run()
         cmd = mock_run.call_args[0][0]
         assert "--append-system-prompt" not in cmd
 
     @patch("yolo.launcher.subprocess.run", side_effect=_sub_run_image_exists)
-    @patch("yolo.launcher.load_config", return_value={})
-    def test_clip_dir_mounted(self, mock_config, mock_run, _mock_wt):
+    @patch("yolo.launcher.load_images", return_value=DEFAULT_IMAGES)
+    @patch("yolo.launcher.load_config", return_value={"image": "yolo-default"})
+    def test_clip_dir_mounted(self, mock_config, mock_images, mock_run, _mock_wt):
         run()
         cmd = mock_run.call_args[0][0]
         assert "/tmp/yolo-clip" in " ".join(cmd)
+
+    @patch("yolo.launcher.load_images", return_value=DEFAULT_IMAGES)
+    @patch("yolo.launcher.load_config", return_value={"image": "yolo-default"})
+    def test_undefined_image_raises(self, mock_config, mock_images, _mock_wt):
+        with pytest.raises(ValueError, match="not defined"):
+            run(image_name="nonexistent")
 
 
 class TestNvidiaArgs:

@@ -6,8 +6,9 @@ from pathlib import Path
 
 import click
 
-from yolo.builder import build as builder_build, image_tag
+from yolo.builder import build as builder_build
 from yolo.config import load_config
+from yolo.images import load_images, validate_images
 from yolo.launcher import run as launcher_run
 
 CONFIG_TEMPLATE = Path(__file__).parent / "defaults" / "config.template.yaml"
@@ -25,7 +26,10 @@ def main(ctx, no_config):
 
 
 @main.command()
-@click.option("--image", default=None, help="Build only this named image")
+@click.option("--name", default=None, help="Build a specific image by name")
+@click.option(
+    "--all", "all_images", is_flag=True, default=False, help="Build all images"
+)
 @click.option("--verify", is_flag=True, default=False, help="Run extras in verify mode")
 @click.option(
     "--build-arg", multiple=True, help="Pass build arg to podman build (repeatable)"
@@ -34,12 +38,25 @@ def main(ctx, no_config):
     "--rebuild", is_flag=True, default=False, help="Rebuild from scratch (no cache)"
 )
 @click.pass_context
-def build(ctx, image, verify, build_arg, rebuild):
+def build(ctx, name, all_images, verify, build_arg, rebuild):
     """Build the container image with configured extras."""
-    config = load_config(no_config=ctx.obj["no_config"])
-    images = config.get("images", [])
+    no_config = ctx.obj["no_config"]
+    config = load_config(no_config=no_config)
+    images = load_images(no_config=no_config)
+    validate_images(images)
+
+    if all_images:
+        target = None
+    else:
+        target = name or config.get("image", "yolo-default")
+
     builder_build(
-        images, only=image, verify=verify, build_args=list(build_arg), rebuild=rebuild
+        images,
+        target=target,
+        all_images=all_images,
+        verify=verify,
+        build_args=list(build_arg),
+        rebuild=rebuild,
     )
 
 
@@ -87,13 +104,20 @@ def init(target, custom_path):
 @click.pass_context
 def images(ctx):
     """List configured images and their build status."""
-    config = load_config(no_config=ctx.obj["no_config"])
-    for entry in config.get("images", []):
-        name = entry.get("name", "default")
-        tag = image_tag(name)
-        result = subprocess.run(["podman", "image", "exists", tag], capture_output=True)
+    no_config = ctx.obj["no_config"]
+    all_images = load_images(no_config=no_config)
+    validate_images(all_images)
+    config = load_config(no_config=no_config)
+    selected = config.get("image", "yolo-default")
+
+    for entry in all_images:
+        name = entry["name"]
+        result = subprocess.run(
+            ["podman", "image", "exists", name], capture_output=True
+        )
         status = "built" if result.returncode == 0 else "not built"
-        click.echo(f"  {name} ({tag}) — {status}")
+        marker = " *" if name == selected else ""
+        click.echo(f"  {name} — {status}{marker}")
 
 
 @main.command()

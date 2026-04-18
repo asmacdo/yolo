@@ -6,8 +6,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from yolo.builder import build, image_tag
+from yolo.builder import build
 from yolo.config import load_config
+from yolo.images import load_images, validate_images
 
 
 def _expand_volume(vol: str) -> str:
@@ -126,6 +127,15 @@ def _worktree_volume(mode: str) -> list[str]:
         return []
 
 
+def _image_exists(tag: str) -> bool:
+    """Check if a podman image exists locally."""
+    result = subprocess.run(
+        ["podman", "image", "exists", tag],
+        capture_output=True,
+    )
+    return result.returncode == 0
+
+
 def run(
     claude_args: list[str] | None = None,
     extra_volumes: list[str] | None = None,
@@ -138,6 +148,9 @@ def run(
 ) -> None:
     """Launch Claude Code in a podman container."""
     config = load_config(no_config=no_config)
+    images = load_images(no_config=no_config)
+    validate_images(images)
+
     worktree_mode = worktree or config.get("worktree", "ask")
     use_nvidia = nvidia or config.get("nvidia", False)
 
@@ -153,11 +166,18 @@ def run(
     name = "".join(c if c.isalnum() or c in "._-" else "_" for c in name)
     name = name.lstrip("._")
 
-    tag = image_tag(image_name or "default")
-    result = subprocess.run(["podman", "image", "exists", tag], capture_output=True)
-    if result.returncode != 0:
+    # Resolve which image to use: CLI --image > config image: > default
+    tag = image_name or config.get("image", "yolo-default")
+
+    # Validate that the selected image is defined
+    by_name = {img["name"]: img for img in images}
+    if tag not in by_name:
+        raise ValueError(f"Image '{tag}' is not defined in any images.yaml")
+
+    # Auto-build if missing
+    if not _image_exists(tag):
         print(f"Image {tag} not found, building...", file=sys.stderr)
-        build(config.get("images", []), only=image_name)
+        build(images, target=tag)
 
     config_volumes = config.get("volumes", [])
 
