@@ -40,30 +40,15 @@
 # NVIDIA GPU passthrough via CDI
 # nvidia: false
 
-# ── Images ──────────────────────────────────────────────────
-# Container images to build. Each has a name and a list of extras.
+# ── Image ───────────────────────────────────────────────────
+# Which image to run. Must be defined in an images.yaml file.
+# Default: yolo-default (ships with yo).
+# image: yolo-default
 #
-# from: override the base image (default: yolo-base).
-#   Any image reference works: yolo-base, ghcr.io/org/img:tag, etc.
-#
-# extras: scripts that run at build time to install tools.
-#   Each entry needs a 'name' that maps to a .sh script.
-#   Additional keys become YOLO_{NAME}_{KEY} env vars.
-#
-#   Script search path (later wins):
-#     <package>/image-extras/        — builtins
-#     ~/.config/yolo/image-extras/   — user scripts
-#     .yolo/image-extras/            — project (committed)
-#     .git/yolo/image-extras/        — project (local)
-#
-# images:
-#   - name: default
-#     # from: yolo-base
-#     # build_args:
-#     #   - CLAUDE_CODE_VERSION=latest
-#     extras:
-#       - name: apt
-#         packages: [zsh, fzf]
-#       - name: python
-#         version: "3.12"
-#       - name: datalad
+# Image definitions live in images.yaml (separate from config.yaml).
+# See images.yaml locations:
+#   <package>/defaults/images.yaml   — builtins
+#   /etc/yolo/images.yaml            — system/org
+#   ~/.config/yolo/images.yaml       — user
+#   .yolo/images.yaml                — project (committed)
+#   .git/yolo/images.yaml            — project (local)
