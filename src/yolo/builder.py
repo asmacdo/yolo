@@ -126,6 +126,20 @@ def _image_exists(tag: str) -> bool:
     return result.returncode == 0
 
 
+def _detect_tz() -> str:
+    """Return host timezone via timedatectl, falling back to UTC."""
+    try:
+        result = subprocess.run(
+            ["timedatectl", "show", "--property=Timezone", "--value"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip() or "UTC"
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return "UTC"
+
+
 def _containerfile(name: str) -> Path:
     """Resolve a containerfile name to its path."""
     if name == "Containerfile.base":
@@ -159,6 +173,8 @@ def build_image(
     if containerfile == "Containerfile.base":
         # Base images: no extras, just build the containerfile directly
         print(flush=True)
+        if not any(a.startswith("TZ=") for a in all_args):
+            all_args.append(f"TZ={_detect_tz()}")
         cmd = [
             "podman",
             "build",
