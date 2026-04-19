@@ -51,6 +51,31 @@ CLI args override everything.
 - **Scalars**: replace
 - **`!replace` tag**: TBD — per-key override to replace instead of append
 
+### Secrets
+
+Tokens and other sensitive env values live in
+`~/.config/yolo/secrets.yaml` (flat map, mode `0600`) rather than
+`config.yaml`. Referenced from any config layer via the `@secrets:<key>`
+prefix on the value side of an `env:` entry:
+
+```yaml
+env:
+  - GITHUB_TOKEN=@secrets:gh-ro
+```
+
+Resolver rules (`src/yolo/secrets.py`):
+
+- `secrets.yaml` is only read when at least one `@secrets:` reference
+  is present. No references → file is never opened.
+- Mode must be `0600`. Any other mode is a hard error with a
+  `chmod 600` hint.
+- Missing file with an outstanding reference → hard error naming the
+  expected path.
+- Missing key → hard error naming the key.
+- Empty value → hard error (no silent passthrough).
+- Env entries without `@secrets:` are untouched (bare-name passthrough
+  and literal `KEY=VALUE` still work).
+
 ---
 
 ## Images

@@ -49,6 +49,26 @@ set `worktree:` in config.
 **Security note**: binding the original repo exposes more files than
 the worktree alone.
 
+## Secrets
+
+Keep tokens out of `config.yaml`. Put them in
+`~/.config/yolo/secrets.yaml` (mode `0600`) and reference by key:
+
+```yaml
+# ~/.config/yolo/secrets.yaml — must be chmod 600
+gh-ro: ghp_xxxxxxxxxxxxxxxxxx
+```
+
+```yaml
+# ~/.config/yolo/config.yaml
+env:
+  - GITHUB_TOKEN=@secrets:gh-ro
+```
+
+At launch, `yo` resolves `@secrets:<key>` from `secrets.yaml` and
+injects the value into the container. If the file isn't mode `0600`,
+or the key is missing, `yo run` refuses to start.
+
 ## TODO
 
 - [ ] Configuration reference

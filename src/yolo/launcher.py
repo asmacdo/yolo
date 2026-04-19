@@ -9,6 +9,7 @@ from pathlib import Path
 from yolo.builder import build
 from yolo.config import load_config
 from yolo.images import load_images, validate_images
+from yolo.secrets import resolve_env
 
 
 def _expand_volume(vol: str) -> str:
@@ -59,9 +60,10 @@ def _build_env_args(env_config: list[str]) -> list[str]:
     """Build -e args from env config.
 
     Bare name = passthrough from host. KEY=VALUE = set explicitly.
+    KEY=@secrets:<key> resolves from ~/.config/yolo/secrets.yaml.
     """
     args = []
-    for entry in env_config:
+    for entry in resolve_env(env_config):
         args.extend(["-e", entry])
     return args
 

@@ -42,6 +42,7 @@ During development, the global install will shadow the local venv unless
 ## Architecture
 
 - `src/yolo/config.py` — YAML config loading from 5 locations (defaults + 4 user)
+- `src/yolo/secrets.py` — loads `~/.config/yolo/secrets.yaml` (mode 0600) and resolves `@secrets:<key>` env refs
 - `src/yolo/images.py` — image definition loading, validation, topo-sort from images.yaml
 - `src/yolo/builder.py` — resolves extras, assembles build context, invokes podman
 - `src/yolo/cli.py` — click CLI (yo build, yo run, yo clip, yo demo)
