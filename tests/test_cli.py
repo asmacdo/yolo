@@ -1,10 +1,18 @@
 """Tests for yolo CLI commands."""
 
+from importlib.metadata import version
 from unittest.mock import patch
 
 from click.testing import CliRunner
 
 from yolo.cli import main
+
+
+def test_version_flag():
+    runner = CliRunner()
+    result = runner.invoke(main, ["--version"])
+    assert result.exit_code == 0
+    assert version("con-yolo") in result.output
 
 
 class TestClip:

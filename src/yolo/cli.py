@@ -2,6 +2,7 @@
 
 import shutil
 import subprocess
+from importlib.metadata import version
 from pathlib import Path
 
 import click
@@ -15,6 +16,7 @@ CONFIG_TEMPLATE = Path(__file__).parent / "defaults" / "config.template.yaml"
 
 
 @click.group()
+@click.version_option(version("con-yolo"), "--version", "-V", prog_name="yo")
 @click.option(
     "--no-config", is_flag=True, default=False, help="Ignore all config files"
 )
