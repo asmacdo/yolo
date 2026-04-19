@@ -4,6 +4,7 @@
 
 - Make clean, atomic commits — one feature or fix per commit.
 - Run `pre-commit run --files <staged files>` before attempting `git commit` to catch formatting issues early.
+- **Default branch is `yo`, not `main`.** The repo also has a `main` branch but it is not the line of development. `yo` is what PRs target and what feature branches should be compared/merged against.
 
 ## Python
 
