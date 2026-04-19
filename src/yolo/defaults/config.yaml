@@ -3,9 +3,13 @@ host_clipboard_command: "xclip -selection clipboard"
 
 context:
   - >-
-    To copy text to the host clipboard, write to
-    /tmp/yolo-clip/content. Tell the user to run
-    'yo clip' on the host to retrieve it.
+    To copy text to the host clipboard, write it to
+    /tmp/yolo-clip/content using Bash (e.g.
+    `printf '%s' "your text" > /tmp/yolo-clip/content`).
+    Do not use the Write tool — it requires a prior Read
+    and will fail if the file does not yet exist. Then
+    tell the user to run 'yo clip' on the host to
+    retrieve it.
 
 env:
   - CLAUDE_CODE_OAUTH_TOKEN

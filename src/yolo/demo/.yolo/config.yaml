@@ -9,11 +9,12 @@ context:
   - >-
     Abort procedure: if something goes wrong or isn't
     smooth, stop the demo. Write a prompt to
-    /tmp/yolo-clip/content addressed to the Claude
-    instance working on yolo with the user, explaining
-    what went wrong and suggesting a fix. Tell the user
-    to run 'yo clip' and paste it into their other
-    session.
+    /tmp/yolo-clip/content (use Bash
+    `printf '%s' "..." > /tmp/yolo-clip/content`, not
+    the Write tool) addressed to the Claude instance
+    working on yolo with the user, explaining what went
+    wrong and suggesting a fix. Tell the user to run
+    'yo clip' and paste it into their other session.
   - >-
     Do NOT use AskUserQuestion for pacing. Just stop
     after each step and wait for the user to type
