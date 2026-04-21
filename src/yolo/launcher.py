@@ -11,27 +11,35 @@ from yolo.config import load_config
 from yolo.images import load_images, validate_images
 from yolo.secrets import resolve_env
 
+CONTAINER_HOME = "/home/yolo"
+
 
 def _expand_volume(vol: str) -> str:
     """Expand volume shorthand to full podman -v syntax.
 
-    ~/projects         → $HOME/projects:$HOME/projects
-    ~/data::ro         → $HOME/data:$HOME/data:ro
+    A leading `~` means the host home on the host side and the container
+    home on the container side, so `~/.cache` in config lands where the
+    container user actually looks for it regardless of host UID/home.
+
+    ~/projects         → $HOME/projects:/home/yolo/projects
+    ~/data::ro         → $HOME/data:/home/yolo/data:ro
     /host:/container   → /host:/container
     /host:/cont:opts   → /host:/cont:opts  (unchanged)
     """
-    home = str(Path.home())
+    host_home = str(Path.home())
     if "::" in vol:
         path, _, opts = vol.partition("::")
-        path = path.replace("~", home, 1)
-        return f"{path}:{path}:{opts}"
+        host_path = path.replace("~", host_home, 1)
+        cont_path = path.replace("~", CONTAINER_HOME, 1)
+        return f"{host_path}:{cont_path}:{opts}"
     elif vol.count(":") >= 2:
         return vol
     elif ":" in vol:
         return vol
     else:
-        path = vol.replace("~", home, 1)
-        return f"{path}:{path}"
+        host_path = vol.replace("~", host_home, 1)
+        cont_path = vol.replace("~", CONTAINER_HOME, 1)
+        return f"{host_path}:{cont_path}"
 
 
 def _build_volume_args(volumes: list[str]) -> list[str]:
@@ -189,11 +197,10 @@ def run(
         "--log-driver=none",
         "-it",
         "--rm",
-        f"--user={os.getuid()}:{os.getgid()}",
-        "--userns=keep-id",
+        "--userns=keep-id:uid=1000,gid=1000",
         f"--name={name}",
         "-v",
-        f"{claude_dir}:{claude_dir}",
+        f"{claude_dir}:{CONTAINER_HOME}/.claude",
         "-v",
         f"{home}/.gitconfig:/tmp/.gitconfig:ro",
         "-v",
@@ -208,8 +215,6 @@ def run(
         *(container_args or []),
         "-w",
         str(cwd),
-        "-e",
-        f"CLAUDE_CONFIG_DIR={claude_dir}",
         "-e",
         "GIT_CONFIG_GLOBAL=/tmp/.gitconfig",
         *_build_env_args(config.get("env", [])),

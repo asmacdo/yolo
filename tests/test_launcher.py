@@ -34,12 +34,12 @@ class TestExpandVolume:
     def test_shorthand(self):
         result = _expand_volume("~/projects")
         home = str(Path.home())
-        assert result == f"{home}/projects:{home}/projects"
+        assert result == f"{home}/projects:/home/yolo/projects"
 
     def test_shorthand_with_options(self):
         result = _expand_volume("~/data::ro")
         home = str(Path.home())
-        assert result == f"{home}/data:{home}/data:ro"
+        assert result == f"{home}/data:/home/yolo/data:ro"
 
     def test_partial(self):
         assert _expand_volume("/host:/container") == "/host:/container"
@@ -73,7 +73,14 @@ class TestRun:
         cmd = mock_run.call_args[0][0]
         assert "podman" == cmd[0]
         assert "run" == cmd[1]
-        assert "--userns=keep-id" in cmd
+        assert "--userns=keep-id:uid=1000,gid=1000" in cmd
+        assert not any(a.startswith("--user=") for a in cmd)
+        # .claude bind mount lands at container home, not host path
+        claude_dir = Path.home() / ".claude"
+        assert f"{claude_dir}:/home/yolo/.claude" in cmd
+        # No HOME override or CLAUDE_CONFIG_DIR workaround needed
+        assert not any(a.startswith("HOME=") for a in cmd)
+        assert not any(a.startswith("CLAUDE_CONFIG_DIR=") for a in cmd)
         assert "claude" in cmd
         assert "--dangerously-skip-permissions" in cmd
         assert "yolo-default" in cmd

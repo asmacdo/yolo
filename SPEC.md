@@ -184,6 +184,23 @@ list of `bash script.sh` calls with env var prefixes.
 Mounts claude config (rw), gitconfig (ro), workspace (rw). Sets up
 env vars. Runs `claude --dangerously-skip-permissions`.
 
+### Paths and user
+
+Container runs as the `yolo` user (UID 1000) via
+`--userns=keep-id:uid=1000,gid=1000`, which maps the host user to UID 1000
+regardless of what the host UID actually is. Inside the container,
+`$HOME=/home/yolo`.
+
+- **Workspace** (`cwd`) is bind-mounted at its host path on both sides
+  so session files and tooling that reference absolute paths stay
+  portable between container and native claude.
+- **`$HOME`** (`/home/yolo`) diverges from the host home so that the
+  container user's home stays writable (for `.cache`, `.local`, shell
+  history, etc.) regardless of the host UID.
+- **`~` in volume config** expands to host home on host side and
+  `/home/yolo` on container side, so `~/.claude`, `~/.cache`, etc.
+  land where the container user actually looks.
+
 ### Config keys
 
 ```yaml
