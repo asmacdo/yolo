@@ -200,7 +200,7 @@ def run(
         "--userns=keep-id:uid=1000,gid=1000",
         f"--name={name}",
         "-v",
-        f"{claude_dir}:{CONTAINER_HOME}/.claude",
+        f"{claude_dir}:{claude_dir}",
         "-v",
         f"{home}/.gitconfig:/tmp/.gitconfig:ro",
         "-v",
@@ -217,6 +217,8 @@ def run(
         str(cwd),
         "-e",
         "GIT_CONFIG_GLOBAL=/tmp/.gitconfig",
+        "-e",
+        f"CLAUDE_CONFIG_DIR={claude_dir}",
         *_build_env_args(config.get("env", [])),
         tag,
     ]

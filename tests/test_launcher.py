@@ -75,12 +75,15 @@ class TestRun:
         assert "run" == cmd[1]
         assert "--userns=keep-id:uid=1000,gid=1000" in cmd
         assert not any(a.startswith("--user=") for a in cmd)
-        # .claude bind mount lands at container home, not host path
+        # .claude bind mount uses the host path on both sides: Claude Code's
+        # creds-check rejects tokens whose read-path differs from write-path,
+        # so the container has to see .claude at the host's absolute path.
         claude_dir = Path.home() / ".claude"
-        assert f"{claude_dir}:/home/yolo/.claude" in cmd
-        # No HOME override or CLAUDE_CONFIG_DIR workaround needed
+        assert f"{claude_dir}:{claude_dir}" in cmd
+        # $HOME stays /home/yolo for writable .cache/.local; only claude state
+        # is pinned to the host path via CLAUDE_CONFIG_DIR.
         assert not any(a.startswith("HOME=") for a in cmd)
-        assert not any(a.startswith("CLAUDE_CONFIG_DIR=") for a in cmd)
+        assert f"CLAUDE_CONFIG_DIR={claude_dir}" in cmd
         assert "claude" in cmd
         assert "--dangerously-skip-permissions" in cmd
         assert "yolo-default" in cmd

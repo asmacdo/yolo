@@ -197,9 +197,13 @@ regardless of what the host UID actually is. Inside the container,
 - **`$HOME`** (`/home/yolo`) diverges from the host home so that the
   container user's home stays writable (for `.cache`, `.local`, shell
   history, etc.) regardless of the host UID.
-- **`~` in volume config** expands to host home on host side and
-  `/home/yolo` on container side, so `~/.claude`, `~/.cache`, etc.
-  land where the container user actually looks.
+- **`~/.claude`** is the exception: bind-mounted at the host path on
+  both sides (`$HOST_HOME/.claude:$HOST_HOME/.claude`), with
+  `CLAUDE_CONFIG_DIR` set to that same host path. Claude Code's
+  creds-check rejects tokens whose read-path differs from the path
+  they were written under, so the container must see claude state at
+  the host's absolute path. Every other `~` in volume config still
+  expands to `/home/yolo` on the container side.
 
 ### Config keys
 
