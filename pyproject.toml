@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "con-yolo"
-version = "0.2.0"
+version = "0.2.1"
 description = "Run Claude Code safely in a container with full autonomy"
 requires-python = ">=3.11"
 dependencies = [
